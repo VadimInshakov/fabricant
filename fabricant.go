@@ -89,6 +89,29 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 										panic(err)
 									}
 
+									// If you started with a closed transaction,
+									// you need to determine the purchase price
+									// by the amount that you can buy relative to already purchased amount
+									haveOpenDeals := false
+									if len(orders) > 0 {
+										for _, v := range orders {
+											if v.Closed {
+												haveOpenDeals = true
+											}
+										}
+									}
+
+									if haveOpenDeals && !withfunds {
+										for k, v := range orders {
+											if v.Closed {
+												// buy
+												orderIdBuy := fab.WaitForBuy(buy, sell, k) // buy relative to already purchased amount
+												fab.WaitOrdersExecute()
+												fmt.Printf("Order %s closed", orderIdBuy)
+											}
+										}
+									}
+
 									if len(orders) == 0 && !withfunds {
 										//buy
 										orderId := fab.MarketBuy(buy, sell, amountForBuy)
