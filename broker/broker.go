@@ -17,7 +17,7 @@ import (
 
 func NewFabricant(conf Config) *Fabricant {
 	ordersMap := make(map[float64]Order)
-	ch := make(chan map[float64]Order)
+	ch := make(chan map[float64]float64)
 	api := exmo.Api(os.Getenv("EXMO_PUBLIC"), os.Getenv("EXMO_SECRET"))
 	tradelimit := decimal.NewFromFloat(0.0001)
 
@@ -71,9 +71,6 @@ func (fab *Fabricant) MarketBuy(buy, sell string, volume float64) string {
 		fmt.Sprintf("%f", volume)
 		order, err = fab.Api.MarketBuy(fmt.Sprintf("%s_%s", buy, sell), fmt.Sprintf("%f", volume))
 	}
-
-	fmt.Printf("%s_%s", buy, sell)
-	fmt.Println("volume", fmt.Sprintf("%f", volume))
 
 	if err != nil {
 		fmt.Printf("api error: %s\n", err.Error())
@@ -229,18 +226,17 @@ func (fab *Fabricant) Monitor() {
 		case msg := <-fab.Ch:
 			for k, v := range msg {
 
-				fmt.Println("v", v)
-				if v.Closed {
-					dirty := (v.SellPrice - v.BuyPrice) * v.Volume
-					fmt.Printf("\n\nWIN! %f RUB", dirty)
-					fab.Delete(k)
-				}
+				was := decimal.NewFromFloat(k)
+				became := decimal.NewFromFloat(v)
+				delta := became.Sub(was)
+				fmt.Printf("\n + %f crypto", delta)
+				fab.Delete(k)
 			}
 		}
 	}
 }
 
-func (fab *Fabricant) WaitForBuy(buy, sell string, price, amount float64) string {
+func (fab *Fabricant) WaitForBuy(buy, sell string, priceAlreadyBuyed float64) string {
 
 	// listen for market prices
 	tick := time.NewTicker(fab.Timers.WAITFORBUY)
@@ -261,43 +257,58 @@ func (fab *Fabricant) WaitForBuy(buy, sell string, price, amount float64) string
 								if err != nil {
 									fmt.Println("conversion interface to float error:", err)
 								}
-								buyPrice, _ := decimal.NewFromString(value.(string))
-								priceBigFloat := decimal.NewFromFloat(price)
-								result := buyPrice.Cmp(priceBigFloat)
-								if result <= 0 {
-									var checkOrderExist Order
-									if fab.Conf.UseRedis {
-										val, err := fab.Get(floatValue)
-										if err != nil {
-											panic(err)
-										}
-										checkOrderExist = val
-									} else {
-										checkOrderExist = fab.Orders[floatValue]
+
+								// Can I buy more crypto now than last time?
+								amountForBuyNow, err := fab.WhatICanBuy(buy, sell)
+								if err != nil {
+									fmt.Println(err)
+									continue
+								}
+
+								alreadyBuyedOrder, err := fab.Get(priceAlreadyBuyed)
+								if err != nil {
+									panic(err)
+								}
+
+								amountAlreadyBuyedDecimal := decimal.NewFromFloat(alreadyBuyedOrder.Volume)
+								amountForBuyNowDecimal := decimal.NewFromFloat(amountForBuyNow)
+								if amountForBuyNowDecimal.Cmp(amountAlreadyBuyedDecimal) != 1 {
+									continue
+								}
+								var checkOrderExist Order
+								if fab.Conf.UseRedis {
+									val, err := fab.Get(floatValue)
+									if err != nil {
+										panic(err)
 									}
-									if (checkOrderExist == Order{}) {
+									checkOrderExist = val
+								} else {
+									checkOrderExist = fab.Orders[floatValue]
+								}
+								if (checkOrderExist == Order{}) {
 
-										//buy
-										orderId := fab.Buy(buy, sell, amount, floatValue)
-										err = fab.Save(floatValue, Order{false, 0, floatValue, amount})
-										if err != nil {
-											panic(err)
-										}
-										fmt.Printf("\nFund %s buyed for %f %s, amount %f", buy, floatValue, sell, amount)
-
-										tmpstore, err := fab.Get(fab.SELLEDNOW)
-										if err != nil {
-											panic(err)
-										}
-										err = fab.Save(fab.SELLEDNOW, Order{tmpstore.Closed, tmpstore.SellPrice, floatValue, tmpstore.Volume})
-										if err != nil {
-											panic(err)
-										}
-										fab.Ch <- map[float64]Order{fab.SELLEDNOW: Order{tmpstore.Closed, tmpstore.SellPrice, floatValue, tmpstore.Volume}}
-										tick.Stop()
-
-										return orderId
+									//buy
+									orderId := fab.Buy(buy, sell, amountForBuyNow, floatValue)
+									err = fab.Save(floatValue, Order{false, 0, floatValue, amountForBuyNow})
+									if err != nil {
+										panic(err)
 									}
+									fmt.Printf("\nFund %s buyed for %f %s, amount %f", buy, floatValue, sell, amountForBuyNow)
+
+									tmpstore, err := fab.Get(fab.SELLEDNOW)
+									if err != nil {
+										panic(err)
+									}
+									err = fab.Save(fab.SELLEDNOW, Order{tmpstore.Closed, tmpstore.SellPrice, floatValue, tmpstore.Volume})
+									if err != nil {
+										panic(err)
+									}
+									newMessage := make(map[float64]float64)
+									newMessage[alreadyBuyedOrder.Volume] = amountForBuyNow
+									fab.Ch <- newMessage
+									tick.Stop()
+
+									return orderId
 								}
 							}
 						}
@@ -306,7 +317,6 @@ func (fab *Fabricant) WaitForBuy(buy, sell string, price, amount float64) string
 			}
 		}
 	}
-
 }
 
 func (fab *Fabricant) Get(key float64) (Order, error) {
@@ -323,7 +333,6 @@ func (fab *Fabricant) Get(key float64) (Order, error) {
 
 	return *order, nil
 }
-
 
 func (fab *Fabricant) Save(key float64, value Order) error {
 	if fab.Conf.UseRedis {
@@ -423,7 +432,6 @@ func (fab *Fabricant) GetLastTradePriceForPair(buy, sell string) float64 {
 	return lastPrice
 }
 
-
 func (fab *Fabricant) GetConfig() Config {
 	return fab.Conf
 }
@@ -441,7 +449,7 @@ func (fab *Fabricant) GetMeta() Meta {
 }
 
 func (fab *Fabricant) GetOrders() (map[float64]Order, error) {
-	if fab.Conf.UseRedis{
+	if fab.Conf.UseRedis {
 		var result = make(map[float64]Order)
 
 		keys, err := fab.Db.Do("KEYS", "*").Result()

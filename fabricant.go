@@ -10,11 +10,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 )
-
-var Once sync.Once
 
 func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 
@@ -51,7 +48,6 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 	}
 
 	var lastPrice float64
-	var Once sync.Once
 	if withfunds {
 		lastPrice = fab.GetLastTradePriceForPair(buy, sell)
 		fmt.Printf("\nLast price: %f", lastPrice)
@@ -87,11 +83,6 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 									}
 
 									sellPriceConverted, _ := sellPrice.Float64()
-									if withfunds {
-										Once.Do(func() {
-											fab.Save(sellPriceConverted, broker.Order{false, 0, 0, amountForBuy})
-										})
-									}
 
 									orders, err = fab.GetOrders()
 									if err != nil {
@@ -133,8 +124,7 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 
 														alreadyBuyedValue := buyedVolume.Mul(buyedPrice)
 
-														fmt.Println("sellTotal", sellTotal)
-														fmt.Println("alreadyBuyedValue", alreadyBuyedValue)
+														// At the current price, is revenue greater than at the previous one?
 
 														if sellTotal.Cmp(alreadyBuyedValue) > 0 {
 
@@ -154,11 +144,11 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 																	fmt.Printf("Order %s closed", orderId)
 
 																	meta.SELLEDNOW = k
-																	fab.Save(k, broker.Order{true, sellPriceConverted, 0, amountForSellConverted})
+																	fab.Save(k, broker.Order{true, sellPriceConverted, k, amountForSellConverted})
 																	fmt.Printf("\nFund %s selled for %f %s, amount %f", buy, sellPriceConverted, sell, amountForSellConverted)
 
 																	// buy
-																	orderIdBuy := fab.WaitForBuy(buy, sell, k, amountForBuy)
+																	orderIdBuy := fab.WaitForBuy(buy, sell, k)
 																	fab.WaitOrdersExecute()
 																	fmt.Printf("Order %s closed", orderIdBuy)
 																}
