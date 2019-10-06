@@ -283,9 +283,10 @@ func (fab *Fabricant) WaitForBuy(buy, sell string, priceAlreadyBuyed float64) st
 								if fab.Conf.UseRedis {
 									val, err := fab.Get(floatValue)
 									if err != nil {
-										panic(err)
+										checkOrderExist = Order{}
+									} else {
+										checkOrderExist = val
 									}
-									checkOrderExist = val
 								} else {
 									checkOrderExist = fab.Orders[floatValue]
 								}
@@ -299,6 +300,7 @@ func (fab *Fabricant) WaitForBuy(buy, sell string, priceAlreadyBuyed float64) st
 									}
 									fmt.Printf("\nFund %s buyed for %f %s, amount %f", buy, floatValue, sell, amountForBuyNow)
 
+									fmt.Println(fab.SELLEDNOW)
 									tmpstore, err := fab.Get(fab.SELLEDNOW)
 									if err != nil {
 										panic(err)
@@ -450,6 +452,10 @@ func (fab *Fabricant) GetApi() *exmo.Exmo {
 
 func (fab *Fabricant) GetMeta() Meta {
 	return fab.Meta
+}
+
+func (fab *Fabricant) SetMetaSelled(price float64) {
+	fab.SELLEDNOW = price
 }
 
 func (fab *Fabricant) GetOrders() (map[float64]Order, error) {
