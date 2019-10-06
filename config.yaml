@@ -1,5 +1,5 @@
-minprice: 400000.04 # minimum market price at which the bot makes transactions
-maxprice: 800000.0  # maximum market price at which the bot makes transactions
+minprice: 480000.0 # minimum market price at which the bot makes transactions
+maxprice: 10000000000.0  # maximum market price at which the bot makes transactions
 gap: 800.0          # the minimum difference between the purchase and sale price the bot reacts to
 useredis: true      # use redis for storing orders (true) or just a go map (false)
 dbaddr: localhost   # redis server address

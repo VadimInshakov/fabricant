@@ -149,6 +149,7 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 
 														// At the current price, is revenue greater than at the previous one?
 
+														fmt.Println(sellTotal, "", alreadyBuyedValue)
 														if sellTotal.Cmp(alreadyBuyedValue) > 0 {
 
 															// sell
@@ -166,7 +167,7 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 																	fab.WaitOrdersExecute()
 																	fmt.Printf("Order %s closed", orderId)
 
-																	meta.SELLEDNOW = k
+																	fab.SetMetaSelled(k)
 																	fab.Save(k, broker.Order{true, sellPriceConverted, k, amountForSellConverted})
 																	fmt.Printf("\nFund %s selled for %f %s, amount %f", buy, sellPriceConverted, sell, amountForSellConverted)
 

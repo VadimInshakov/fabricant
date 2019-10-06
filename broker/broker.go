@@ -43,7 +43,7 @@ func (fab *Fabricant) Sell(sell, buy string, volume, price float64) string {
 	orderSell, err := fab.Api.Sell(fmt.Sprintf("%s_%s", sell, buy), fmt.Sprintf("%f", volume), fmt.Sprintf("%f", price))
 	for err != nil && strings.Contains(err.Error(), "Insufficient funds") {
 		fmt.Printf("\nInsufficient funds: \nvolume %f replaced with ", volume)
-		volume = volume - volume*0.01
+		volume = volume - volume*0.001
 		fmt.Printf("%f\n", volume)
 		orderSell, err = fab.Api.Sell(fmt.Sprintf("%s_%s", sell, buy), fmt.Sprintf("%f", volume), fmt.Sprintf("%f", price))
 	}
