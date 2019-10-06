@@ -272,6 +272,10 @@ func (fab *Fabricant) WaitForBuy(buy, sell string, priceAlreadyBuyed float64) st
 
 								amountAlreadyBuyedDecimal := decimal.NewFromFloat(alreadyBuyedOrder.Volume)
 								amountForBuyNowDecimal := decimal.NewFromFloat(amountForBuyNow)
+
+								fmt.Println("Already bought: ", amountAlreadyBuyedDecimal)
+								fmt.Println("Can buy now: ", amountForBuyNowDecimal)
+
 								if amountForBuyNowDecimal.Cmp(amountAlreadyBuyedDecimal) != 1 {
 									continue
 								}
