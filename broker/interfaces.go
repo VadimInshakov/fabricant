@@ -10,7 +10,7 @@ type Fabricator interface {
 	WhatICanBuy(buy, sell string) (float64, error)
 	WhatICanSell(currency string) float64
 	Monitor()
-	WaitForBuy(buy, sell string, price, amount float64) string
+	WaitForBuy(buy, sell string, price float64) string
 	Save(key float64, value Order) error
 	Delete(key float64)
 	GetConfig() Config
