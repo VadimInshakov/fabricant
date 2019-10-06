@@ -20,7 +20,7 @@ type Meta struct {
 }
 
 type Fabricant struct {
-	Ch     chan map[float64]Order
+	Ch     chan map[float64]float64
 	Conf   Config
 	Orders map[float64]Order
 	Api    *exmo.Exmo
