@@ -20,4 +20,5 @@ type Fabricator interface {
 	SetMetaSelled(float64)
 	GetOrders() (map[float64]Order, error)
 	GetLastTradePriceForPair(string, string) float64
+	GetOrderPrice(string) (float64, error)
 }
