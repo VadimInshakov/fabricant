@@ -28,24 +28,24 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 	maxPriceBigFloat := decimal.NewFromFloat(config.MaxPrice)
 	GapBigFloat := decimal.NewFromFloat(config.Gap)
 
-	date := time.Date(2019, 10, 4, 0, 0, 0, 0, time.UTC)
-	subdate := 10 * time.Hour
-
-	resultWalletHistory, err := api.GetWalletHistory(date.Truncate(subdate))
-
-	if err != nil {
-		fmt.Errorf("api error: %s\n", err)
-	} else {
-		fmt.Println(resultWalletHistory)
-		for k, v := range resultWalletHistory {
-			fmt.Println(k, v)
-			if k == "history" {
-				for key, val := range v.([]interface{}) {
-					fmt.Println(key, val)
-				}
-			}
-		}
-	}
+	//date := time.Date(2019, 10, 4, 0, 0, 0, 0, time.UTC)
+	//subdate := 10 * time.Hour
+	//
+	//resultWalletHistory, err := api.GetWalletHistory(date.Truncate(subdate))
+	//
+	//if err != nil {
+	//	fmt.Errorf("api error: %s\n", err)
+	//} else {
+	//	fmt.Println(resultWalletHistory)
+	//	for k, v := range resultWalletHistory {
+	//		fmt.Println(k, v)
+	//		if k == "history" {
+	//			for key, val := range v.([]interface{}) {
+	//				fmt.Println(key, val)
+	//			}
+	//		}
+	//	}
+	//}
 
 	var lastPrice float64
 	if withfunds {
@@ -75,12 +75,6 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 								sellPrice, _ := decimal.NewFromString(price)
 
 								if sellPrice.Cmp(minPriceBigFloat) > 0 && sellPrice.Cmp(maxPriceBigFloat) < 0 {
-
-									amountForBuy, err := fab.WhatICanBuy(buy, sell)
-									if err != nil {
-										fmt.Println(err)
-										continue
-									}
 
 									sellPriceConverted, _ := sellPrice.Float64()
 
@@ -113,16 +107,29 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 									}
 
 									if len(orders) == 0 && !withfunds {
+										// calculate how much I can buy
+										amountForBuy, err := fab.WhatICanBuy(buy, sell)
+										if err != nil {
+											fmt.Println(err)
+											continue
+										}
+
 										//buy
 										orderId := fab.MarketBuy(buy, sell, amountForBuy)
 										fab.WaitOrdersExecute()
 										fmt.Printf("Order %s closed", orderId)
-										fab.Save(sellPriceConverted, broker.Order{false, 0, 0, amountForBuy})
+
+										// get marketBuy order price
+										buyedFor, err := fab.GetOrderPrice(orderId)
+										if err != nil {
+											panic(err)
+										}
+
+										//save order to redis or map
+										fab.Save(sellPriceConverted, broker.Order{false, 0, buyedFor, amountForBuy})
 										fmt.Printf("\nNew fund created with price: %.2f\n", sellPriceConverted)
 									} else {
-
 										for k, v := range orders {
-
 											if !v.Closed {
 
 												kBigFloat := decimal.NewFromFloat(k)
@@ -148,8 +155,6 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 														alreadyBuyedValue := buyedVolume.Mul(buyedPrice)
 
 														// At the current price, is revenue greater than at the previous one?
-
-														fmt.Println(sellTotal, "", alreadyBuyedValue)
 														if sellTotal.Cmp(alreadyBuyedValue) > 0 {
 
 															// sell
@@ -171,8 +176,15 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 																	fab.Save(k, broker.Order{true, sellPriceConverted, k, amountForSellConverted})
 																	fmt.Printf("\nFund %s selled for %f %s, amount %f", buy, sellPriceConverted, sell, amountForSellConverted)
 
+																	// calculate again how much I can buy
+																	amountForBuy, err := fab.WhatICanBuy(buy, sell)
+																	if err != nil {
+																		fmt.Println(err)
+																		continue
+																	}
+
 																	// buy
-																	orderIdBuy := fab.WaitForBuy(buy, sell, k)
+																	orderIdBuy := fab.WaitForBuy(buy, sell, amountForBuy)
 																	fab.WaitOrdersExecute()
 																	fmt.Printf("Order %s closed", orderIdBuy)
 																}
@@ -187,13 +199,11 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 									fmt.Printf("\nLimit reached, sell price now: %f", sellPrice)
 								}
 							}
-
 						}
 					}
 				}
 			}
 		}
-
 	}
 }
 
