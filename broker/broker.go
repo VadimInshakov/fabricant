@@ -32,9 +32,9 @@ func NewFabricant(conf Config) *Fabricant {
 		if err != nil {
 			log.Fatalf("\nCan't connect to Redis, %s", err)
 		}
-		return &Fabricant{ch, conf, ordersMap, &api, Timers{POLLINTERVAL: 8 * time.Second, WAITFORBUY: 8 * time.Second, ORDERSCHECK: 7 * time.Second}, Meta{0, tradelimit}, client}
+		return &Fabricant{ch, conf, ordersMap, &api, Timers{POLLINTERVAL: 10 * time.Second, WAITFORBUY: 8 * time.Second, ORDERSCHECK: 7 * time.Second}, Meta{0, tradelimit}, client}
 	} else {
-		return &Fabricant{ch, conf, ordersMap, &api, Timers{POLLINTERVAL: 8 * time.Second, WAITFORBUY: 8 * time.Second, ORDERSCHECK: 7 * time.Second}, Meta{0, tradelimit}, nil}
+		return &Fabricant{ch, conf, ordersMap, &api, Timers{POLLINTERVAL: 10 * time.Second, WAITFORBUY: 8 * time.Second, ORDERSCHECK: 7 * time.Second}, Meta{0, tradelimit}, nil}
 	}
 }
 
@@ -140,7 +140,6 @@ func (fab *Fabricant) WaitOrdersExecute() {
 			}
 		}
 	}
-
 }
 
 func (fab *Fabricant) WhatICanBuy(buy, sell string) (float64, error) {
@@ -221,16 +220,17 @@ func (fab *Fabricant) WhatICanSell(currency string) float64 {
 }
 
 func (fab *Fabricant) Monitor() {
+	msg := make(map[float64]float64)
 	for {
 		select {
-		case msg := <-fab.Ch:
+		case msg = <-fab.Ch:
 			for k, v := range msg {
-
 				was := decimal.NewFromFloat(k)
 				became := decimal.NewFromFloat(v)
 				delta := became.Sub(was)
-				fmt.Printf("\n + %f crypto", delta)
+				fmt.Printf("\n + %d crypto", delta)
 				fab.Delete(k)
+				delete(msg, k)
 			}
 		}
 	}
@@ -273,9 +273,6 @@ func (fab *Fabricant) WaitForBuy(buy, sell string, priceAlreadyBuyed float64) st
 								amountAlreadyBuyedDecimal := decimal.NewFromFloat(alreadyBuyedOrder.Volume)
 								amountForBuyNowDecimal := decimal.NewFromFloat(amountForBuyNow)
 
-								fmt.Println("Already bought: ", amountAlreadyBuyedDecimal)
-								fmt.Println("Can buy now: ", amountForBuyNowDecimal)
-
 								if amountForBuyNowDecimal.Cmp(amountAlreadyBuyedDecimal) != 1 {
 									continue
 								}
@@ -300,7 +297,6 @@ func (fab *Fabricant) WaitForBuy(buy, sell string, priceAlreadyBuyed float64) st
 									}
 									fmt.Printf("\nFund %s buyed for %f %s, amount %f", buy, floatValue, sell, amountForBuyNow)
 
-									fmt.Println(fab.SELLEDNOW)
 									tmpstore, err := fab.Get(fab.SELLEDNOW)
 									if err != nil {
 										panic(err)
@@ -326,18 +322,22 @@ func (fab *Fabricant) WaitForBuy(buy, sell string, priceAlreadyBuyed float64) st
 }
 
 func (fab *Fabricant) Get(key float64) (Order, error) {
-	val, err := fab.Db.Get(fmt.Sprintf("%f", key)).Result()
-	if err != nil {
-		return Order{}, err
-	}
+	if fab.Conf.UseRedis {
+		val, err := fab.Db.Get(fmt.Sprintf("%f", key)).Result()
+		if err != nil {
+			return Order{}, err
+		}
 
-	order := &Order{}
-	err = json.Unmarshal([]byte(val), order)
-	if err != nil {
-		return Order{}, err
-	}
+		order := &Order{}
+		err = json.Unmarshal([]byte(val), order)
+		if err != nil {
+			return Order{}, err
+		}
 
-	return *order, nil
+		return *order, nil
+	} else {
+		return fab.Orders[key], nil
+	}
 }
 
 func (fab *Fabricant) Save(key float64, value Order) error {
@@ -390,7 +390,7 @@ func (fab *Fabricant) GetLastTradePriceForPair(buy, sell string) float64 {
 			}
 
 			if !order.Closed {
-				return (*order).BuyPrice
+				return order.BuyPrice
 			}
 		}
 	} else {
@@ -456,6 +456,36 @@ func (fab *Fabricant) GetMeta() Meta {
 
 func (fab *Fabricant) SetMetaSelled(price float64) {
 	fab.SELLEDNOW = price
+}
+
+func (fab *Fabricant) GetOrderPrice(orderId string) (float64, error) {
+
+	var priceConverted float64
+	var err error
+	resultUserOpenOrders, err := fab.Api.GetUserOpenOrders()
+	if err != nil {
+		fmt.Errorf("api error: %s\n", err)
+	} else {
+		for _, v := range resultUserOpenOrders {
+			if v != nil {
+				for _, val := range v.([]interface{}) {
+					for key, value := range val.(map[string]interface{}) {
+						if key == "order_id" {
+							if value.(string) == orderId {
+								price := val.(map[string]interface{})["price"]
+								priceConverted, err := strconv.ParseFloat(price.(string), 64)
+								if err != nil {
+									return 0, err
+								}
+								return priceConverted, nil
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return priceConverted, err
 }
 
 func (fab *Fabricant) GetOrders() (map[float64]Order, error) {
