@@ -12,8 +12,14 @@ Configure config.yaml:
     dbpass:             # redis server pass
     dbnum: 0            # redis server db index
 
-Then start Fabricant:
+Set env variables with public and private EXMO API keys:
 
+    export EXMO_PUBLIC=<YOUR PUB KEY>
+    export EXMO_SECRET=<YOUR SECRET>
+
+Then start Redis and Fabricant:
+
+    docker run -p 6379:6379 --name redis -d redis redis-server --appendonly yes
     ./fabricant <args>
     
 Args:
