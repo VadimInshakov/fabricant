@@ -394,7 +394,7 @@ func (fab *Fabricant) GetLastTradePriceForPair(buy, sell string) float64 {
 			}
 		}
 	} else {
-		usertrades, err1 := fab.Api.GetUserTrades(fmt.Sprintf("%s_%s", buy, sell))
+		usertrades, err1 := fab.Api.GetUserTrades(fmt.Sprintf("%s_%s", buy, sell), 0, 10000)
 		if err1 != nil {
 			fmt.Printf("api error: %s\n", err1.Error())
 		} else {
