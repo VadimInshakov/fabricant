@@ -1,6 +1,6 @@
 ## **Algotrading bot for EXMO cryptocurrency exchange**
 
-#### Start
+#### HOWTO
 Configure config.yaml:
 
     minprice: 400000.04 # minimum market price at which the bot makes transactions
