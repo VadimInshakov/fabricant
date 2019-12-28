@@ -1,7 +1,7 @@
 ## **Algotrading bot for EXMO cryptocurrency exchange**
 
 ##### DISCLAIMER
-This project created for demonstration of the use of the Golang EXMO lib `[github.com/vadiminshakov/exmo](github.com/vadiminshakov/exmo)`
+This project created for demonstration of the use of the Golang EXMO lib [github.com/vadiminshakov/exmo](https://github.com/vadiminshakov/exmo)
  
 The bot works very simply and does not use any trading strategies: 
 the bot buys an asset at the current market price and sells when the selling price is at least somewhat profitable.
