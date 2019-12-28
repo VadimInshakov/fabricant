@@ -28,7 +28,7 @@ Set env variables with public and private EXMO API keys:
 Then start Redis and Fabricant:
 
     docker run -p 6379:6379 --name redis -d redis redis-server --appendonly yes
-    ./fabricant <args>
+    go build && ./fabricant <args>
     
 Args:
 
