@@ -6,7 +6,7 @@ This project created for demonstration of the use of the Golang EXMO lib [github
 The bot works very simply and does not use any trading strategies: 
 the bot buys an asset at the current market price and sells when the selling price is at least somewhat profitable.
      
-**This project is not intended to make money, the author is not responsible for any damage caused by using this code github.com/vadiminshakov/exmo**
+**This project is not intended to make money, the author is not responsible for any damage caused by using this code**
 
 #### HOWTO
 Configure config.yaml:
