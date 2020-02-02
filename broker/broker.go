@@ -32,13 +32,14 @@ import (
 )
 
 func NewFabricant(conf Config) *Fabricant {
+	var client *redis.Client
 	ordersMap := make(map[float64]Order)
 	ch := make(chan map[float64]float64)
 	api := exmo.Api(os.Getenv("EXMO_PUBLIC"), os.Getenv("EXMO_SECRET"))
 	tradelimit := decimal.NewFromFloat(0.0001)
 
 	if conf.UseRedis {
-		client := redis.NewClient(&redis.Options{
+		client = redis.NewClient(&redis.Options{
 			Addr:     fmt.Sprintf("%s:%s", conf.DbAddr, conf.DbPort),
 			Password: conf.DbPass, // no password set
 			DB:       conf.DbNum,  // use default DB
@@ -48,10 +49,9 @@ func NewFabricant(conf Config) *Fabricant {
 		if err != nil {
 			log.Fatalf("\nCan't connect to Redis, %s", err)
 		}
-		return &Fabricant{ch, conf, ordersMap, &api, Timers{POLLINTERVAL: 10 * time.Second, WAITFORBUY: 8 * time.Second, ORDERSCHECK: 7 * time.Second}, Meta{0, tradelimit}, client}
-	} else {
-		return &Fabricant{ch, conf, ordersMap, &api, Timers{POLLINTERVAL: 10 * time.Second, WAITFORBUY: 8 * time.Second, ORDERSCHECK: 7 * time.Second}, Meta{0, tradelimit}, nil}
+
 	}
+	return &Fabricant{ch, conf, ordersMap, &api, Timers{POLLINTERVAL: 1 * time.Second, WAITFORBUY: 800 * time.Millisecond, ORDERSCHECK: 700 * time.Millisecond}, Meta{0, tradelimit}, client}
 }
 
 func (fab *Fabricant) Sell(sell, buy string, volume, price float64) string {
@@ -183,7 +183,7 @@ func (fab *Fabricant) WhatICanBuy(buy, sell string) (float64, error) {
 	// get market buy price
 	ticker, err := fab.Api.Ticker()
 	if err != nil {
-		fmt.Printf("api error: %s\n", err.Error())
+		return 0, err
 	} else {
 		for pair, pairvalue := range ticker {
 			if pair == fmt.Sprintf("%s_%s", buy, sell) {
@@ -281,6 +281,7 @@ func (fab *Fabricant) WaitForBuy(buy, sell string, priceAlreadyBuyed float64) st
 									continue
 								}
 
+								fmt.Println("priceAlreadyBuyed", priceAlreadyBuyed)
 								alreadyBuyedOrder, err := fab.Get(priceAlreadyBuyed)
 								if err != nil {
 									panic(err)
@@ -398,7 +399,6 @@ func (fab *Fabricant) GetLastTradePriceForPair(buy, sell string) float64 {
 			if err != nil {
 				panic(err)
 			}
-
 			order := &Order{}
 			err = json.Unmarshal([]byte(val), order)
 			if err != nil {
