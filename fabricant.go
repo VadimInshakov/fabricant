@@ -146,7 +146,7 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 										fmt.Printf("\nNew fund created with price: %.2f\n", sellPriceConverted)
 									} else {
 										for k, v := range orders {
-											if !v.Closed {
+											if !v.Closed { // "Closed" order is the order that sold
 
 												kBigFloat := decimal.NewFromFloat(k)
 												tmpDelta := sellPrice.Sub(GapBigFloat)
@@ -245,7 +245,7 @@ func main() {
 
 	fabricant := broker.NewFabricant(globalConfig)
 
-	go Start(fabricant, "ETH", "RUB", *withfunds)
+	go Start(fabricant, "BTC", "RUB", *withfunds)
 	go fabricant.Monitor()
 
 	// just a stupid stub for Heroku deployment
