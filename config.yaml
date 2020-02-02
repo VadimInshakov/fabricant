@@ -8,6 +8,6 @@ dbpass:                   # redis server pass
 dbnum: 0                  # redis server db index
 
 timers:
-  pollinterval: 1s
-  waitforbuy: 800ms
-  orderscheck: 500ms
+  pollinterval: 10s
+  waitforbuy: 8s
+  orderscheck: 5s
