@@ -20,7 +20,6 @@ import (
 	"github.com/go-redis/redis"
 	"github.com/shopspring/decimal"
 	"github.com/vadiminshakov/exmo"
-	"time"
 )
 
 type Order struct {
@@ -40,15 +39,14 @@ type Fabricant struct {
 	Conf   Config
 	Orders map[float64]Order
 	Api    *exmo.Exmo
-	Timers
 	Meta
 	Db *redis.Client
 }
 
 type Timers struct {
-	POLLINTERVAL time.Duration
-	WAITFORBUY   time.Duration
-	ORDERSCHECK  time.Duration
+	PollInterval string `yaml:"pollinterval"`
+	WaitForBuy   string `yaml:"waitforbuy"`
+	OrdersCheck  string `yaml:"orderscheck"`
 }
 
 type Config struct {
@@ -60,4 +58,5 @@ type Config struct {
 	DbPort   string  `yaml:dbport`
 	DbPass   string  `yaml:"dbpass"`
 	DbNum    int     `yaml:"dbnum"`
+	Timers
 }

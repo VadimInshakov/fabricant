@@ -31,12 +31,13 @@ import (
 
 func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 
+	conf := fab.GetConfig()
+
 	orders, err := fab.GetOrders()
 	if err != nil {
 		panic(err)
 	}
 	config := fab.GetConfig()
-	timers := fab.GetTimers()
 	api := fab.GetApi()
 	meta := fab.GetMeta()
 
@@ -69,7 +70,12 @@ func Start(fab broker.Fabricator, buy, sell string, withfunds bool) {
 		fmt.Printf("\nLast price: %f", lastPrice)
 	}
 
-	tick := time.NewTicker(timers.POLLINTERVAL)
+	duration, err := time.ParseDuration(conf.Timers.PollInterval)
+	if err != nil {
+		panic(fmt.Sprintf("Can't parse duration, error: %s", err))
+	}
+
+	tick := time.NewTicker(duration)
 	for {
 		select {
 		case <-tick.C:

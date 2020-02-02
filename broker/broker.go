@@ -51,7 +51,7 @@ func NewFabricant(conf Config) *Fabricant {
 		}
 
 	}
-	return &Fabricant{ch, conf, ordersMap, &api, Timers{POLLINTERVAL: 1 * time.Second, WAITFORBUY: 800 * time.Millisecond, ORDERSCHECK: 700 * time.Millisecond}, Meta{0, tradelimit}, client}
+	return &Fabricant{ch, conf, ordersMap, &api, Meta{0, tradelimit}, client}
 }
 
 func (fab *Fabricant) Sell(sell, buy string, volume, price float64) string {
@@ -142,7 +142,13 @@ func (fab *Fabricant) Buy(buy, sell string, volume, price float64) string {
 }
 
 func (fab *Fabricant) WaitOrdersExecute() {
-	tick := time.NewTicker(fab.Timers.ORDERSCHECK)
+
+	duration, err := time.ParseDuration(fab.Conf.Timers.OrdersCheck)
+	if err != nil {
+		panic(fmt.Sprintf("Can't parse duration, error: %s", err))
+	}
+
+	tick := time.NewTicker(duration)
 	for {
 		select {
 		case <-tick.C:
@@ -254,8 +260,13 @@ func (fab *Fabricant) Monitor() {
 
 func (fab *Fabricant) WaitForBuy(buy, sell string, priceAlreadyBuyed float64) string {
 
+	duration, err := time.ParseDuration(fab.Conf.Timers.WaitForBuy)
+	if err != nil {
+		panic(fmt.Sprintf("Can't parse duration, error: %s", err))
+	}
+
 	// listen for market prices
-	tick := time.NewTicker(fab.Timers.WAITFORBUY)
+	tick := time.NewTicker(duration)
 	for {
 		select {
 		case <-tick.C:
@@ -459,7 +470,7 @@ func (fab *Fabricant) GetConfig() Config {
 }
 
 func (fab *Fabricant) GetTimers() Timers {
-	return fab.Timers
+	return fab.Conf.Timers
 }
 
 func (fab *Fabricant) GetApi() *exmo.Exmo {
